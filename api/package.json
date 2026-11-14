@@ -1,0 +1,34 @@
+{
+  "name": "@apsco/api",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "nest build",
+    "start:dev": "nest start --watch",
+    "start:prod": "node dist/main.js",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run build && node --test test/*.test.cjs",
+    "migration:run": "node scripts/migrate.cjs",
+    "migration:deploy": "node scripts/migrate.cjs"
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.0.0",
+    "@nestjs/core": "^11.0.0",
+    "@nestjs/platform-express": "^11.0.0",
+    "@nestjs/config": "^4.0.0",
+    "pg": "^8.16.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "class-validator": "^0.14.2",
+    "class-transformer": "^0.5.1",
+    "helmet": "^8.1.0",
+    "dotenv": "^17.2.0"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^11.0.0",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.9.0",
+    "ts-node": "^10.9.2",
+    "@types/pg": "^8.15.0"
+  }
+}
