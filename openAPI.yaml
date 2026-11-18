@@ -1,0 +1,1513 @@
+openapi: 3.0.3
+info:
+  title: APSco Commerce API
+  version: 0.1.0-draft
+  description: >-
+    HTTP API for APSco Commerce. The health routes are implemented.
+    Catalog, identity, inventory, cart, order, payment, and shipping routes are proposed for review.
+    Top-level categories are configured by APSco and exposed as a read-only list.
+    Admins maintain one level of subcategories under those categories.
+servers:
+  - url: http://localhost:3001
+    description: Local development server (default PORT=3001)
+tags:
+  - name: Health
+    description: Liveness and database readiness probes
+  - name: Categories
+    description: Read-only list of configured top-level categories
+  - name: Subcategories
+    description: Browse subcategories by category and manage them with admin access
+  - name: Products
+    description: Browse published products and manage the product catalog with admin access
+  - name: Identity
+    description: Customer accounts and access tokens
+  - name: Inventory
+    description: Admin stock management
+  - name: Cart
+    description: The signed-in customer’s active cart
+  - name: Orders
+    description: Customer purchases and admin order review
+  - name: Payments
+    description: Hosted payment sessions and payment status
+  - name: Shipping
+    description: Checkout delivery options and admin shipment tracking
+paths:
+  /api/v1/health/live:
+    get:
+      tags:
+        - Health
+      summary: Liveness probe
+      description: Returns 200 OK when the API process is running.
+      operationId: healthLive
+      responses:
+        '200':
+          description: Service is alive
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatusResponse'
+              example:
+                status: ok
+  /api/v1/health/ready:
+    get:
+      tags:
+        - Health
+      summary: Readiness probe
+      description: Executes `SELECT 1` against PostgreSQL to verify database connectivity.
+      operationId: healthReady
+      responses:
+        '200':
+          description: Service and database are ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatusResponse'
+              example:
+                status: ok
+        '503':
+          description: Database unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: Database unavailable
+                error: Service Unavailable
+                statusCode: 503
+  /api/v1/categories:
+    get:
+      tags:
+        - Categories
+      summary: List the configured categories
+      operationId: listCategories
+      description: Slugs are stable identifiers for top-level categories. This list includes categories
+        with zero active subcategories.
+      responses:
+        '200':
+          description: List the configured categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Category'
+              example:
+                - slug: example-category
+                  name: Example category
+  /api/v1/categories/{categorySlug}/subcategories:
+    get:
+      tags:
+        - Subcategories
+      summary: List active subcategories in a category
+      operationId: listCategorySubcategories
+      description: Returns an empty list for a configured category with zero active subcategories.
+      parameters:
+        - $ref: '#/components/parameters/CategorySlug'
+      responses:
+        '200':
+          description: List active subcategories in a category
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Subcategory'
+              example:
+                - id: 525a24fe-ae23-46b2-a286-4604b40abfb2
+                  categorySlug: example-category
+                  slug: example-subcategory
+                  name: Example subcategory
+                  status: active
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/products:
+    get:
+      tags:
+        - Products
+      summary: List products
+      operationId: listProducts
+      description: >-
+        The default view returns published products in active subcategories.
+        The all view requires the admin role and includes drafts, archived products, and products under
+        archived subcategories, with admin product fields.
+        Results are ordered newest first with ID as the tie-breaker.
+        When both filters are supplied, products must match both.
+      security:
+        - {}
+        - bearerAuth: []
+      parameters:
+        - name: view
+          in: query
+          description: Use all with an admin token to see every product state.
+          schema:
+            type: string
+            enum: [published, all]
+            default: published
+        - $ref: '#/components/parameters/CategoryFilter'
+        - $ref: '#/components/parameters/SubcategoryFilter'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: The product page for the requested view
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/ProductPage'
+                  - $ref: '#/components/schemas/AdminProductPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags:
+        - Products
+      summary: Create a draft product
+      operationId: adminCreateProduct
+      description: >-
+        A product belongs to exactly one subcategory. Product slugs and SKUs are globally unique.
+        Prices use the store’s configured checkout currency.
+      security:
+        - bearerAuth: []
+      x-required-role: admin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProduct'
+      responses:
+        '201':
+          description: Create a draft product
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminProduct'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/products/by-slug/{slug}:
+    get:
+      tags:
+        - Products
+      summary: Get a published product
+      operationId: getProduct
+      description: The product must belong to an active subcategory.
+      parameters:
+        - name: slug
+          in: path
+          description: Product slug.
+          required: true
+          schema:
+            $ref: '#/components/schemas/Slug'
+      responses:
+        '200':
+          description: Get a published product
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/subcategories:
+    get:
+      tags:
+        - Subcategories
+      summary: List subcategories
+      operationId: adminListSubcategories
+      description: Includes active and archived subcategories, ordered by category slug and then subcategory slug.
+      security:
+        - bearerAuth: []
+      x-required-role: admin
+      parameters:
+        - $ref: '#/components/parameters/CategoryFilter'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: List subcategories
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubcategoryPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags:
+        - Subcategories
+      summary: Create a subcategory
+      operationId: adminCreateSubcategory
+      description: Use a configured category slug. Subcategory slugs are unique within their category.
+        New subcategories are active.
+      security:
+        - bearerAuth: []
+      x-required-role: admin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSubcategory'
+            example:
+              categorySlug: example-category
+              slug: example-subcategory
+              name: Example subcategory
+      responses:
+        '201':
+          description: Create a subcategory
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Subcategory'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/subcategories/{subcategoryId}:
+    patch:
+      tags:
+        - Subcategories
+      summary: Update a subcategory
+      operationId: adminUpdateSubcategory
+      description: Archiving hides the subcategory and its products from the storefront. Existing product
+        associations and orders are retained.
+      security:
+        - bearerAuth: []
+      x-required-role: admin
+      parameters:
+        - $ref: '#/components/parameters/SubcategoryId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSubcategory'
+      responses:
+        '200':
+          description: Update a subcategory
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Subcategory'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/products/{productId}:
+    get:
+      tags:
+        - Products
+      summary: Get a product in any state
+      operationId: adminGetProduct
+      security:
+        - bearerAuth: []
+      x-required-role: admin
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+      responses:
+        '200':
+          description: Get a product in any state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminProduct'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags:
+        - Products
+      summary: Update a product
+      operationId: adminUpdateProduct
+      description: Publish products under active subcategories. Archiving removes a product from the storefront
+        and preserves order history.
+      security:
+        - bearerAuth: []
+      x-required-role: admin
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProduct'
+      responses:
+        '200':
+          description: Update a product
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminProduct'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/auth/register:
+    post:
+      tags:
+        - Identity
+      summary: Register a customer
+      operationId: registerCustomer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterCustomer'
+      responses:
+        '201':
+          description: Register a customer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/auth/login:
+    post:
+      tags:
+        - Identity
+      summary: Sign in
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Credentials'
+      responses:
+        '200':
+          description: Sign in
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessToken'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /api/v1/me:
+    get:
+      tags:
+        - Identity
+      summary: Get the signed-in account
+      operationId: getAccount
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Get the signed-in account
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /api/v1/inventory/{productId}:
+    get:
+      tags:
+        - Inventory
+      summary: Get product stock
+      operationId: adminGetInventory
+      security:
+        - bearerAuth: []
+      x-required-role: admin
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+      responses:
+        '200':
+          description: Get product stock
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Inventory'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags:
+        - Inventory
+      summary: Set the on-hand stock count
+      operationId: adminSetInventory
+      description: Send the current stock version. A stale version or an on-hand count below reserved
+        stock returns 409.
+      security:
+        - bearerAuth: []
+      x-required-role: admin
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetInventory'
+      responses:
+        '200':
+          description: Set the on-hand stock count
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Inventory'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/cart:
+    get:
+      tags:
+        - Cart
+      summary: Get the active cart
+      operationId: getCart
+      description: An account with no items receives an empty cart.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Get the active cart
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cart'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /api/v1/cart/items/{productId}:
+    put:
+      tags:
+        - Cart
+      summary: Set a cart item quantity
+      operationId: setCartItem
+      description: Creates the line if needed and replaces its quantity on repeat requests. Cart quantities
+        do not reserve stock.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetCartItem'
+      responses:
+        '200':
+          description: Set a cart item quantity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cart'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+    delete:
+      tags:
+        - Cart
+      summary: Remove a cart item
+      operationId: removeCartItem
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+      responses:
+        '204':
+          description: The item is absent from the cart.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /api/v1/shipping/options:
+    post:
+      tags:
+        - Shipping
+      summary: Quote delivery options for the active cart
+      operationId: quoteShipping
+      description: Returns an empty list when the destination has no supported delivery option.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShippingAddress'
+      responses:
+        '200':
+          description: Quote delivery options for the active cart
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ShippingOption'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/orders:
+    get:
+      tags:
+        - Orders
+      summary: List orders
+      operationId: listOrders
+      description: >-
+        The default view returns orders belonging to the signed-in account.
+        The all view requires the admin role and returns orders from every account.
+        Results are ordered newest first with ID as the tie-breaker.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: view
+          in: query
+          description: Use all with an admin token to see orders from every account.
+          schema:
+            type: string
+            enum: [mine, all]
+            default: mine
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: The order page for the requested view
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags:
+        - Orders
+      summary: Place an order from the active cart
+      operationId: createOrder
+      description: >-
+        Revalidates prices, delivery, and stock. On success, snapshots the order, reserves stock,
+        and clears the cart atomically. An order awaiting payment expires and releases its reservation.
+        Reuse the same idempotency key and body to retrieve the original result after a retry.
+        Reusing that key with a different body returns 409.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          description: Unique per account and order creation attempt.
+          required: true
+          schema:
+            $ref: '#/components/schemas/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrder'
+      responses:
+        '201':
+          description: Place an order from the active cart
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/orders/{orderId}:
+    get:
+      tags:
+        - Orders
+      summary: Get an order
+      operationId: getOrder
+      description: Customers can retrieve their own orders. Admins can retrieve orders from any account.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      responses:
+        '200':
+          description: The requested order
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/orders/{orderId}/shipment:
+    put:
+      tags:
+        - Shipping
+      summary: Set shipment tracking for a paid order
+      operationId: adminSetShipment
+      description: Recording a shipment marks the order as shipped. A subsequent request updates tracking
+        details for the same shipment.
+      security:
+        - bearerAuth: []
+      x-required-role: admin
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetShipment'
+      responses:
+        '200':
+          description: Set shipment tracking for a paid order
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/orders/{orderId}/payments:
+    post:
+      tags:
+        - Payments
+      summary: Start or resume hosted checkout
+      operationId: createOrderPayment
+      description: Returns the current open payment attempt or creates one for an order awaiting payment.
+        The server uses the order total and confirms payment with the provider before marking the order
+        paid.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      responses:
+        '200':
+          description: Start or resume hosted checkout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '502':
+          $ref: '#/components/responses/ProviderUnavailable'
+  /api/v1/orders/{orderId}/payments/{paymentId}:
+    get:
+      tags:
+        - Payments
+      summary: Get the status of a payment attempt
+      operationId: getOrderPayment
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+        - $ref: '#/components/parameters/PaymentId'
+      responses:
+        '200':
+          description: Get the status of a payment attempt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+components:
+  schemas:
+    HealthStatusResponse:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          example: ok
+    ErrorResponse:
+      type: object
+      required:
+        - message
+        - statusCode
+      properties:
+        message:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: string
+          description: An error message or a list of validation messages.
+          example: Database unavailable
+        error:
+          type: string
+          example: Service Unavailable
+        statusCode:
+          type: integer
+          example: 503
+    Id:
+      type: string
+      format: uuid
+    Slug:
+      type: string
+      pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+      maxLength: 100
+    CategorySlug:
+      type: string
+      pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+      maxLength: 100
+      description: Stable slug from the configured category list returned by GET /api/v1/categories.
+    PageInfo:
+      type: object
+      required:
+        - number
+        - limit
+        - totalItems
+      properties:
+        number:
+          type: integer
+          minimum: 1
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 100
+        totalItems:
+          type: integer
+          minimum: 0
+    Money:
+      type: object
+      required:
+        - amount
+        - currency
+      properties:
+        amount:
+          type: integer
+          minimum: 0
+          format: int64
+          description: Amount in the currency’s minor unit.
+        currency:
+          type: string
+          pattern: ^[A-Z]{3}$
+          description: ISO 4217 currency code.
+    Category:
+      type: object
+      required:
+        - slug
+        - name
+      properties:
+        slug:
+          $ref: '#/components/schemas/CategorySlug'
+        name:
+          type: string
+          minLength: 1
+    SubcategoryStatus:
+      type: string
+      enum:
+        - active
+        - archived
+    Subcategory:
+      type: object
+      required:
+        - id
+        - categorySlug
+        - slug
+        - name
+        - status
+      properties:
+        id:
+          $ref: '#/components/schemas/Id'
+        categorySlug: &id001
+          $ref: '#/components/schemas/CategorySlug'
+        slug: &id002
+          $ref: '#/components/schemas/Slug'
+        name: &id003
+          type: string
+          minLength: 1
+          maxLength: 120
+        status:
+          $ref: '#/components/schemas/SubcategoryStatus'
+    SubcategoryPage:
+      type: object
+      required:
+        - items
+        - page
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Subcategory'
+        page:
+          $ref: '#/components/schemas/PageInfo'
+    CreateSubcategory:
+      type: object
+      required:
+        - categorySlug
+        - slug
+        - name
+      additionalProperties: false
+      properties:
+        categorySlug: *id001
+        slug: *id002
+        name: *id003
+    UpdateSubcategory:
+      type: object
+      minProperties: 1
+      additionalProperties: false
+      properties:
+        slug: *id002
+        name: *id003
+        status:
+          $ref: '#/components/schemas/SubcategoryStatus'
+    Product:
+      type: object
+      required:
+        - id
+        - subcategoryId
+        - slug
+        - name
+        - description
+        - price
+        - imageUrls
+        - categorySlug
+      properties:
+        id: &id004
+          $ref: '#/components/schemas/Id'
+        subcategoryId: &id005
+          $ref: '#/components/schemas/Id'
+        slug: &id006
+          $ref: '#/components/schemas/Slug'
+        name: &id007
+          type: string
+          minLength: 1
+          maxLength: 200
+        description: &id008
+          type: string
+          maxLength: 10000
+        price: &id009
+          $ref: '#/components/schemas/Money'
+        imageUrls: &id010
+          type: array
+          items:
+            type: string
+            format: uri
+        categorySlug: &id011
+          $ref: '#/components/schemas/CategorySlug'
+    ProductPage:
+      type: object
+      required:
+        - items
+        - page
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Product'
+        page:
+          $ref: '#/components/schemas/PageInfo'
+    AdminProduct:
+      type: object
+      required:
+        - id
+        - subcategoryId
+        - slug
+        - name
+        - description
+        - price
+        - imageUrls
+        - categorySlug
+        - sku
+        - status
+      properties:
+        id: *id004
+        subcategoryId: *id005
+        slug: *id006
+        name: *id007
+        description: *id008
+        price: *id009
+        imageUrls: *id010
+        categorySlug: *id011
+        sku: &id012
+          type: string
+          minLength: 1
+          maxLength: 64
+        status: &id013
+          type: string
+          enum:
+            - draft
+            - published
+            - archived
+    AdminProductPage:
+      type: object
+      required:
+        - items
+        - page
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminProduct'
+        page:
+          $ref: '#/components/schemas/PageInfo'
+    CreateProduct:
+      type: object
+      required:
+        - subcategoryId
+        - slug
+        - name
+        - description
+        - price
+        - imageUrls
+        - sku
+      additionalProperties: false
+      properties:
+        subcategoryId: *id005
+        slug: *id006
+        name: *id007
+        description: *id008
+        price: *id009
+        imageUrls: *id010
+        sku: *id012
+    UpdateProduct:
+      type: object
+      minProperties: 1
+      additionalProperties: false
+      properties:
+        subcategoryId: *id005
+        slug: *id006
+        name: *id007
+        description: *id008
+        price: *id009
+        imageUrls: *id010
+        sku: *id012
+        status: *id013
+    Credentials:
+      type: object
+      required:
+        - email
+        - password
+      additionalProperties: false
+      properties:
+        email: &id014
+          type: string
+          format: email
+          maxLength: 254
+        password:
+          type: string
+          format: password
+          minLength: 1
+          maxLength: 128
+          writeOnly: true
+    RegisterCustomer:
+      type: object
+      required:
+        - email
+        - name
+        - password
+      additionalProperties: false
+      properties:
+        email: *id014
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        password:
+          type: string
+          format: password
+          minLength: 12
+          maxLength: 128
+          writeOnly: true
+    Account:
+      type: object
+      required:
+        - id
+        - email
+        - name
+        - role
+      properties:
+        id:
+          $ref: '#/components/schemas/Id'
+        email: *id014
+        name:
+          type: string
+        role:
+          type: string
+          enum:
+            - customer
+            - admin
+    AccessToken:
+      type: object
+      required:
+        - accessToken
+        - tokenType
+        - expiresIn
+      properties:
+        accessToken:
+          type: string
+        tokenType:
+          type: string
+          enum:
+            - Bearer
+        expiresIn:
+          type: integer
+          minimum: 1
+          description: Seconds until the token expires.
+    Inventory:
+      type: object
+      required:
+        - productId
+        - onHand
+        - reserved
+        - available
+        - version
+      properties:
+        productId:
+          $ref: '#/components/schemas/Id'
+        onHand:
+          type: integer
+          minimum: 0
+        reserved:
+          type: integer
+          minimum: 0
+        available:
+          type: integer
+          minimum: 0
+          description: On-hand stock less reserved stock.
+        version:
+          type: integer
+          minimum: 1
+    SetInventory:
+      type: object
+      required:
+        - onHand
+        - version
+      additionalProperties: false
+      properties:
+        onHand:
+          type: integer
+          minimum: 0
+        version:
+          type: integer
+          minimum: 1
+    SetCartItem:
+      type: object
+      required:
+        - quantity
+      additionalProperties: false
+      properties:
+        quantity:
+          type: integer
+          minimum: 1
+    CartItem:
+      type: object
+      required:
+        - productId
+        - name
+        - quantity
+        - unitPrice
+        - lineTotal
+        - available
+      properties:
+        productId:
+          $ref: '#/components/schemas/Id'
+        name:
+          type: string
+        quantity:
+          type: integer
+          minimum: 1
+        unitPrice:
+          $ref: '#/components/schemas/Money'
+        lineTotal:
+          $ref: '#/components/schemas/Money'
+        available:
+          type: boolean
+          description: Whether the selected quantity is currently purchasable.
+    Cart:
+      type: object
+      description: Amounts use the store’s configured checkout currency.
+      required:
+        - items
+        - subtotal
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CartItem'
+        subtotal:
+          $ref: '#/components/schemas/Money'
+    ShippingAddress:
+      type: object
+      required:
+        - recipientName
+        - phone
+        - line1
+        - city
+        - countryCode
+      additionalProperties: false
+      properties:
+        recipientName:
+          type: string
+          minLength: 1
+          maxLength: 120
+        phone:
+          type: string
+          minLength: 1
+          maxLength: 32
+        line1:
+          type: string
+          minLength: 1
+          maxLength: 200
+        line2:
+          type: string
+          maxLength: 200
+        city:
+          type: string
+          minLength: 1
+          maxLength: 120
+        region:
+          type: string
+          maxLength: 120
+        postalCode:
+          type: string
+          maxLength: 24
+        countryCode:
+          type: string
+          pattern: ^[A-Z]{2}$
+          description: ISO 3166-1 alpha-2 country code.
+    ShippingOption:
+      type: object
+      required:
+        - code
+        - name
+        - price
+      properties:
+        code:
+          type: string
+          minLength: 1
+        name:
+          type: string
+        price:
+          $ref: '#/components/schemas/Money'
+    CreateOrder:
+      type: object
+      required:
+        - shippingAddress
+        - shippingOptionCode
+      additionalProperties: false
+      properties:
+        shippingAddress:
+          $ref: '#/components/schemas/ShippingAddress'
+        shippingOptionCode:
+          type: string
+          minLength: 1
+          description: Code returned by the shipping options endpoint.
+    IdempotencyKey:
+      type: string
+      minLength: 1
+      maxLength: 128
+    OrderItem:
+      type: object
+      required:
+        - productId
+        - sku
+        - name
+        - quantity
+        - unitPrice
+        - lineTotal
+      properties:
+        productId:
+          $ref: '#/components/schemas/Id'
+        sku:
+          type: string
+        name:
+          type: string
+        quantity:
+          type: integer
+          minimum: 1
+        unitPrice:
+          $ref: '#/components/schemas/Money'
+        lineTotal:
+          $ref: '#/components/schemas/Money'
+    SetShipment:
+      type: object
+      required:
+        - carrier
+        - trackingNumber
+      additionalProperties: false
+      properties:
+        carrier: &id015
+          type: string
+          minLength: 1
+          maxLength: 120
+        trackingNumber: &id016
+          type: string
+          minLength: 1
+          maxLength: 120
+        trackingUrl: &id017
+          type: string
+          format: uri
+    Shipment:
+      type: object
+      required:
+        - carrier
+        - trackingNumber
+        - shippedAt
+      properties:
+        carrier: *id015
+        trackingNumber: *id016
+        trackingUrl: *id017
+        shippedAt:
+          type: string
+          format: date-time
+    Order:
+      type: object
+      description: Items, shipping, and prices reflect the values captured when the order was placed.
+        Total includes shipping and tax.
+      required:
+        - id
+        - customerId
+        - status
+        - items
+        - shippingAddress
+        - shippingOption
+        - subtotal
+        - tax
+        - total
+        - createdAt
+        - paymentDueAt
+      properties:
+        id:
+          $ref: '#/components/schemas/Id'
+        customerId:
+          $ref: '#/components/schemas/Id'
+        status:
+          type: string
+          enum:
+            - awaiting_payment
+            - paid
+            - shipped
+            - expired
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItem'
+          minItems: 1
+        shippingAddress:
+          $ref: '#/components/schemas/ShippingAddress'
+        shippingOption:
+          $ref: '#/components/schemas/ShippingOption'
+        subtotal:
+          $ref: '#/components/schemas/Money'
+        tax:
+          $ref: '#/components/schemas/Money'
+        total:
+          $ref: '#/components/schemas/Money'
+        createdAt:
+          type: string
+          format: date-time
+        paymentDueAt:
+          type: string
+          format: date-time
+          description: Deadline for paying this order.
+        shipment:
+          $ref: '#/components/schemas/Shipment'
+    OrderPage:
+      type: object
+      required:
+        - items
+        - page
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Order'
+        page:
+          $ref: '#/components/schemas/PageInfo'
+    Payment:
+      type: object
+      required:
+        - id
+        - orderId
+        - status
+        - amount
+      properties:
+        id:
+          $ref: '#/components/schemas/Id'
+        orderId:
+          $ref: '#/components/schemas/Id'
+        status:
+          type: string
+          enum:
+            - pending
+            - succeeded
+            - failed
+            - expired
+        amount:
+          $ref: '#/components/schemas/Money'
+        checkoutUrl:
+          type: string
+          format: uri
+          description: Hosted checkout URL for an open payment attempt.
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: Access token issued at sign-in. Management operations and views require the admin role.
+  parameters:
+    CategorySlug:
+      name: categorySlug
+      in: path
+      description: Configured category slug.
+      required: true
+      schema:
+        $ref: '#/components/schemas/CategorySlug'
+    CategoryFilter:
+      name: categorySlug
+      in: query
+      description: Filter by configured category slug.
+      schema:
+        $ref: '#/components/schemas/CategorySlug'
+    SubcategoryFilter:
+      name: subcategoryId
+      in: query
+      description: Filter by subcategory. Combine with categorySlug to narrow results.
+      schema:
+        $ref: '#/components/schemas/Id'
+    Page:
+      name: page
+      in: query
+      description: Page number.
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    Limit:
+      name: limit
+      in: query
+      description: Maximum items per page.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    SubcategoryId:
+      name: subcategoryId
+      in: path
+      description: Subcategory ID.
+      required: true
+      schema:
+        $ref: '#/components/schemas/Id'
+    ProductId:
+      name: productId
+      in: path
+      description: Product ID.
+      required: true
+      schema:
+        $ref: '#/components/schemas/Id'
+    OrderId:
+      name: orderId
+      in: path
+      description: Order ID.
+      required: true
+      schema:
+        $ref: '#/components/schemas/Id'
+    PaymentId:
+      name: paymentId
+      in: path
+      description: Payment ID.
+      required: true
+      schema:
+        $ref: '#/components/schemas/Id'
+  responses:
+    BadRequest:
+      description: Invalid request.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Missing or invalid credentials.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Admin access required.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Resource unavailable or outside the caller’s account.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Conflict:
+      description: The requested change conflicts with the current resource state.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    ProviderUnavailable:
+      description: The payment provider is temporarily unavailable. The request may be retried.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'

@@ -76,7 +76,9 @@ modules/catalog/
 
 Inject `Database` and call `database.query('SELECT ... WHERE id = $1', [id])`. For transactions, acquire one client with `connect()`, use it for BEGIN/all queries/COMMIT or ROLLBACK, and release it in finally. Never concatenate user values or use pool.query across a transaction. Allowlist any dynamic column or sort names. Keep database types and backend imports out of the frontend; use HTTP API contracts.
 
-Add migrations as `api/src/database/migrations/0001_description.sql`, in sortable order. The runner locks concurrent migration executions, tracks checksums, and wraps each file in a transaction. Never modify applied migrations; add a corrective migration. Files must not contain transaction control or operations such as CREATE INDEX CONCURRENTLY that cannot run inside a transaction. No commerce schema is assumed yet.
+Add paired files such as `0002_description.up.sql` and `0002_description.down.sql` in `api/src/database/migrations/`, in sortable order. Run `npm run db:migrate` to apply pending migrations and `npm run db:rollback` to revert the most recently applied migration. Rolling back the initial commerce migration drops its tables and their data.
+
+The runner locks concurrent migration executions, checks applied up-file checksums, and wraps each migration and history update in one transaction. Add a corrective migration when an applied migration needs changes. Keep transaction control and statements that require execution outside a transaction, such as `CREATE INDEX CONCURRENTLY`, out of migration files.
 
 When adding Next.js, create its package.json inside web/ and run npm install at the root to update the shared lockfile. Keep frontend and backend independently deployable. Add a separate web Dockerfile and service then. Add shared packages or a task runner only when concrete duplication or build times justify them.
 

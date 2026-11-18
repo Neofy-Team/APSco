@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit",
     "test": "npm run build && node --test test/*.test.cjs",
     "migration:run": "node scripts/migrate.cjs",
+    "migration:revert": "node scripts/migrate.cjs down",
     "migration:deploy": "node scripts/migrate.cjs"
   },
   "dependencies": {

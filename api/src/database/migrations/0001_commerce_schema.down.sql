@@ -1,0 +1,12 @@
+DROP TABLE shipments;
+DROP TABLE payments;
+DROP TABLE order_items;
+DROP TABLE orders;
+DROP TABLE cart_items;
+DROP TABLE carts;
+DROP TABLE inventory;
+DROP TABLE product_images;
+DROP TABLE products;
+DROP TABLE subcategories;
+DROP TABLE categories;
+DROP TABLE accounts;

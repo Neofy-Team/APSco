@@ -15,6 +15,7 @@
     "test": "npm test -w api",
     "db:up": "docker compose -f infra/compose.yaml up -d db",
     "db:down": "docker compose -f infra/compose.yaml down",
-    "db:migrate": "npm run migration:run -w api"
+    "db:migrate": "npm run migration:run -w api",
+    "db:rollback": "npm run migration:revert -w api"
   }
 }
