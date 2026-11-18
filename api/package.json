@@ -7,7 +7,11 @@
     "start:dev": "nest start --watch",
     "start:prod": "node dist/main.js",
     "typecheck": "tsc --noEmit",
-    "test": "npm run build && node --test test/*.test.cjs",
+    "test": "npm run test:unit",
+    "test:unit": "npm run build && node --test test/*.test.cjs",
+    "test:integration": "npm run build && node --test test/*.integration.cjs",
+    "test:e2e": "npm run build && node --test test/*.e2e.cjs",
+    "test:all": "npm run build && node --test test/*.test.cjs test/*.integration.cjs test/*.e2e.cjs",
     "migration:run": "node scripts/migrate.cjs",
     "migration:revert": "node scripts/migrate.cjs down",
     "migration:deploy": "node scripts/migrate.cjs"

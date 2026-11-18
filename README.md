@@ -29,6 +29,19 @@ npm run dev
 API: `http://localhost:3001/api/v1/health/live` and `/api/v1/health/ready`.
 Run `npm run typecheck` and `npm test` before merging.
 
+## API tests
+
+Run `npm test` for unit tests. The integration and HTTP end-to-end suites require a
+PostgreSQL connection in `TEST_DATABASE_URL` with permission to create schemas.
+Each test uses a temporary schema and removes it when the test finishes.
+
+```sh
+export TEST_DATABASE_URL='postgresql://commerce:commerce_local@localhost:5432/commerce_test'
+npm run test:all
+```
+
+Use `npm run test:integration` or `npm run test:e2e` to run either database suite separately.
+
 For fully containerized local development (no Node installation required):
 
 ```sh
