@@ -12,8 +12,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en">
       <body>
-        <Header/>
-        {children}
+        <Header />
+        <div className="px-5">
+          {children}
+        </div>
         <Footer />
       </body>
     </html>
