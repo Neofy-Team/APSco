@@ -1,1 +1,223 @@
 @import "tailwindcss";
+
+@font-face {
+    font-family: "Inter";
+    src: url("/fonts/English/Inter-VariableFont_opsz,wght.ttf") format("truetype");
+    font-weight: 100 900;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "Vazir";
+    src: url("/fonts/Persian/Vazir-Light-FD-WOL.woff2") format("woff2");
+    font-weight: 300;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "Vazir";
+    src: url("/fonts/Persian/Vazir-FD-WOL.woff2") format("woff2");
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "Vazir";
+    src: url("/fonts/Persian/Vazir-Medium-FD-WOL.woff2") format("woff2");
+    font-weight: 500;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "Vazir";
+    src: url("/fonts/Persian/Vazir-Bold-FD-WOL.woff2") format("woff2");
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "IBM Plex Sans Arabic";
+    src: url("/fonts/Arabic/IBMPlexSansArabic-Light.ttf") format("truetype");
+    font-weight: 300;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "IBM Plex Sans Arabic";
+    src: url("/fonts/Arabic/IBMPlexSansArabic-Regular.ttf") format("truetype");
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "IBM Plex Sans Arabic";
+    src: url("/fonts/Arabic/IBMPlexSansArabic-Medium.ttf") format("truetype");
+    font-weight: 500;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "IBM Plex Sans Arabic";
+    src: url("/fonts/Arabic/IBMPlexSansArabic-SemiBold.ttf") format("truetype");
+    font-weight: 600;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "IBM Plex Sans Arabic";
+    src: url("/fonts/Arabic/IBMPlexSansArabic-Bold.ttf") format("truetype");
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+
+@theme inline {
+    --color-bg: var(--bg);
+    --color-b: var(--b);
+    --color-w: var(--w);
+
+    --color-primary: var(--primary);
+    --color-primary-10: var(--primary-10);
+    --color-primary-20: var(--primary-20);
+    --color-primary-30: var(--primary-30);
+    --color-primary-40: var(--primary-40);
+    --color-primary-50: var(--primary-50);
+    --color-primary-60: var(--primary-60);
+    --color-primary-70: var(--primary-70);
+    --color-primary-80: var(--primary-80);
+    --color-primary-90: var(--primary-90);
+    --color-primary-100: var(--primary-100);
+
+    --color-accent: var(--accent);
+    --color-accent-tints-10: var(--accent-tints-10);
+    --color-accent-tints-20: var(--accent-tints-20);
+    --color-accent-tints-30: var(--accent-tints-30);
+    --color-accent-tints-40: var(--accent-tints-40);
+    --color-accent-tints-50: var(--accent-tints-50);
+    --color-accent-tints-60: var(--accent-tints-60);
+
+    --color-accent-shades-10: var(--accent-shades-10);
+    --color-accent-shades-20: var(--accent-shades-20);
+    --color-accent-shades-30: var(--accent-shades-30);
+
+    --color-category: var(--category);
+    --color-category-tints-10: var(--category-tints-10);
+    --color-category-tints-20: var(--category-tints-20);
+    --color-category-tints-30: var(--category-tints-30);
+    --color-category-tints-40: var(--category-tints-40);
+    --color-category-tints-50: var(--category-tints-50);
+    --color-category-tints-60: var(--category-tints-60);
+
+    --color-category-shades-10: var(--category-shades-10);
+    --color-category-shades-20: var(--category-shades-20);
+    --color-category-shades-30: var(--category-shades-30);
+
+    --color-danger: var(--danger);
+    --color-success: var(--success);
+
+    /* breakpoint */
+    --breakpoint-sm: 320px;
+
+    /* desktop text */
+    --text-ds: .8rem;
+    --text-dm: 1rem;
+    --text-dl: 1.3rem;
+    --text-dxl: 1.6rem;
+    --text-d2xl: 2rem;
+
+
+    /* mobile text */
+    --text-ms: .7rem;
+    --text-mm: .9rem;
+    --text-ml: 1.1rem;
+    --text-mxl: 1.4rem;
+    --text-m2xl: 1.8rem;
+}
+
+@layer base {
+
+    :root {
+        color-scheme: dark;
+
+        --bg: #202C32;
+        --b: #000;
+        --w: #fff;
+
+        --primary: #E2EBE7;
+        --primary-10: #26343B;
+        --primary-20: #34454C;
+        --primary-30: #526367;
+        --primary-40: #657679;
+        --primary-50: #7A8A8B;
+        --primary-60: #8E9F9E;
+        --primary-70: #A3B4B1;
+        --primary-80: #B9C9C4;
+        --primary-90: #C7D4D0;
+        --primary-100: #D4E0DB;
+
+        --accent: #ABC2A6;
+        --accent-tints-10: #FBFCFA;
+        --accent-tints-20: #EDF2EC;
+        --accent-tints-30: #E0E8DE;
+        --accent-tints-40: #D2DFD0;
+        --accent-tints-50: #C5D5C2;
+        --accent-tints-60: #B8CBB4;
+
+        --accent-shades-10: #869E8A;
+        --accent-shades-20: #637C6F;
+        --accent-shades-30: #415B55;
+
+        --category: var(--accent);
+        --category-tints-10: var(--accent-tints-10);
+        --category-tints-20: var(--accent-tints-20);
+        --category-tints-30: var(--accent-tints-30);
+        --category-tints-40: var(--accent-tints-40);
+        --category-tints-50: var(--accent-tints-50);
+        --category-tints-60: var(--accent-tints-60);
+
+        --category-shades-10: var(--accent-shades-10);
+        --category-shades-20: var(--accent-shades-20);
+        --category-shades-30: var(--accent-shades-30);
+
+        --danger: #DC4747;
+        --success: #45CC33;
+
+        --font-en: "Inter", ui-sans-serif, system-ui, sans-serif;
+        --font-fa: "Vazir", "Inter", ui-sans-serif, system-ui, sans-serif;
+        --font-ar: "IBM Plex Sans Arabic", ui-sans-serif, system-ui, sans-serif;
+        --font-main: var(--font-en);
+    }
+
+    :root:lang(fa) {
+        --font-main: var(--font-fa);
+    }
+
+    :root:lang(ar) {
+        --font-main: var(--font-ar);
+    }
+
+    body {
+        background-color: var(--primary-20);
+        color: var(--primary);
+        font-family: var(--font-main);
+    }
+
+    input:-webkit-autofill,
+    input:-webkit-autofill:hover,
+    input:-webkit-autofill:focus,
+    input:-webkit-autofill:active {
+        -webkit-box-shadow: 0 0 0 1000px var(--bg) inset !important;
+        -webkit-text-fill-color: var(--primary) !important;
+        caret-color: var(--primary);
+        transition: background-color 9999s ease-in-out 0s;
+    }
+}
