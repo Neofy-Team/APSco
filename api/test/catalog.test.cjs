@@ -1,8 +1,9 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { ValidationPipe } = require('@nestjs/common');
-const { CatalogService } = require('../dist/modules/catalog/catalog.service');
-const { ListProductsQuery } = require('../dist/modules/catalog/dto/list-products-query');
+const { CategoriesService } = require('../dist/modules/categories/categories.service');
+const { ProductsService } = require('../dist/modules/products/products.service');
+const { ListProductsQuery } = require('../dist/modules/products/dto/list-products-query');
 
 const product = {
   id: 'product-id',
@@ -29,7 +30,7 @@ const expectedProduct = {
 
 test('catalog service returns configured categories and distinguishes empty and unknown categories', async () => {
   const categories = [{ slug: 'catalog-test', name: 'Catalog Test' }];
-  const service = new CatalogService({
+  const service = new CategoriesService({
     listCategories: async () => categories,
     listCategorySubcategories: async slug => slug === 'catalog-test' ? [] : null,
   });
@@ -41,7 +42,7 @@ test('catalog service returns configured categories and distinguishes empty and 
 
 test('catalog service maps products and preserves pagination totals', async () => {
   const query = { view: 'published', page: 2, limit: 10, categorySlug: 'catalog-test' };
-  const service = new CatalogService({
+  const service = new ProductsService({
     listProducts: async filters => {
       assert.deepEqual(filters, query);
       return { products: [product], totalItems: 11 };
@@ -55,14 +56,14 @@ test('catalog service maps products and preserves pagination totals', async () =
 });
 
 test('catalog service rejects the planned management view before querying products', async () => {
-  const service = new CatalogService({
+  const service = new ProductsService({
     listProducts: async () => assert.fail('Management query reached the repository'),
   });
   await assert.rejects(service.listProducts({ view: 'all', page: 1, limit: 20 }), { status: 401 });
 });
 
 test('catalog service finds products by slug, maps missing products, and serializes full bigint prices', async () => {
-  const service = new CatalogService({
+  const service = new ProductsService({
     getProduct: async slug => {
       if (slug === 'first') return product;
       if (slug === 'large-price') return { ...product, slug, priceAmount: '9223372036854775807' };

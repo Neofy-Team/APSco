@@ -2,10 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Database } from '../../database/database.module';
 import { ListProductsQuery } from './dto/list-products-query';
 
-type Category = { slug: string; name: string };
-type Subcategory = Category & { id: string; categorySlug: string; status: 'active' };
-
-export type CatalogProduct = {
+export type ProductRow = {
   id: string;
   subcategoryId: string;
   categorySlug: string;
@@ -39,33 +36,13 @@ const productImages = `
 `;
 
 @Injectable()
-export class CatalogRepository {
+export class ProductsRepository {
   constructor(private readonly database: Database) {}
-
-  async listCategories() {
-    const { rows } = await this.database.query<Category>('SELECT slug, name FROM categories ORDER BY slug');
-    return rows;
-  }
-
-  async listCategorySubcategories(categorySlug: string) {
-    const { rows } = await this.database.query<{ id: null } | Subcategory>(
-      `SELECT subcategory.id, category.slug AS "categorySlug", subcategory.slug,
-              subcategory.name, subcategory.status
-       FROM categories AS category
-       LEFT JOIN subcategories AS subcategory
-         ON subcategory.category_slug = category.slug AND subcategory.status = 'active'
-       WHERE category.slug = $1
-       ORDER BY subcategory.slug`,
-      [categorySlug],
-    );
-    if (!rows.length) return null;
-    return rows.filter((row): row is Subcategory => row.id !== null);
-  }
 
   async listProducts({ categorySlug, subcategoryId, page, limit }: ListProductsQuery) {
     const offset = BigInt(page - 1) * BigInt(limit);
     const { rows } = await this.database.query<
-      { totalItems: string } & (CatalogProduct | { id: null })
+      { totalItems: string } & (ProductRow | { id: null })
     >(
       `WITH matching AS (
          SELECT ${productColumns}, product.created_at
@@ -85,13 +62,13 @@ export class CatalogRepository {
       [categorySlug ?? null, subcategoryId ?? null, limit, offset.toString()],
     );
     return {
-      products: rows.filter((row): row is CatalogProduct & { totalItems: string } => row.id !== null),
+      products: rows.filter((row): row is ProductRow & { totalItems: string } => row.id !== null),
       totalItems: Number(rows[0].totalItems),
     };
   }
 
   async getProduct(slug: string) {
-    const { rows: [product] } = await this.database.query<CatalogProduct>(
+    const { rows: [product] } = await this.database.query<ProductRow>(
       `SELECT ${productColumns}, ${productImages}
        ${visibleProducts} AND product.slug = $1`,
       [slug],

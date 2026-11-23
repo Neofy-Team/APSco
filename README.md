@@ -74,16 +74,16 @@ Use backward-compatible migrations during rolling updates. Back up PostgreSQL be
 
 ## Backend conventions
 
-Start as a modular monolith. Add business modules as features are implemented: identity, catalog, inventory, carts, orders, payments, shipping. Each module owns its controllers, DTOs, services, repositories and SQL. Controllers handle HTTP, services enforce business rules, repositories execute parameterized SQL. Do not create global folders for all controllers or all services.
+Start as a modular monolith. Add business modules as features are implemented: identity, categories, products, inventory, carts, orders, payments, shipping. Each module owns its controllers, DTOs, services, repositories and SQL. Controllers handle HTTP, services enforce business rules, repositories execute parameterized SQL. Do not create global folders for all controllers or all services.
 
-Example future feature:
+Example module layout
 
 ```text
-modules/catalog/
-  catalog.module.ts
-  catalog.controller.ts
-  catalog.service.ts
-  catalog.repository.ts
+modules/products/
+  products.module.ts
+  products.controller.ts
+  products.service.ts
+  products.repository.ts
   dto/
 ```
 
