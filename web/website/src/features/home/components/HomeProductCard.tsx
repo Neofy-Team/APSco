@@ -1,7 +1,7 @@
 import BaseButton from "@/components/Ui/BaseButton"
 import { ArrowRight } from "lucide-react"
 import Image from "next/image"
-import type { HomeProductCategory } from "../homeProductCategories"
+import type { HomeProductCategory } from "@/lib/productCategories"
 
 type HomeProductCardProps = {
     category: HomeProductCategory,

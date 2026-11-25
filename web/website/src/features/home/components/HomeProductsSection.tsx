@@ -1,6 +1,6 @@
 import BaseButton from "@/components/Ui/BaseButton"
 import { ArrowRight } from "lucide-react"
-import { homeProductCategories } from "../homeProductCategories"
+import { homeProductCategories } from "@/lib/productCategories"
 import HomeProductCard from "./HomeProductCard"
 
 export default function HomeProductsSection() {
