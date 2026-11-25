@@ -1,29 +1,12 @@
-import { Type } from 'class-transformer';
-import { IsIn, IsInt, IsOptional, IsUUID, Matches, Max, MaxLength, Min } from 'class-validator';
+import { IsIn, IsOptional, IsUUID } from 'class-validator';
+import { CatalogPageQuery } from '../../../common/catalog-validation';
 
-export class ListProductsQuery {
+export class ListProductsQuery extends CatalogPageQuery {
   @IsOptional()
   @IsIn(['published', 'all'])
   view: 'published' | 'all' = 'published';
 
   @IsOptional()
-  @Matches(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
-  @MaxLength(100)
-  categorySlug?: string;
-
-  @IsOptional()
   @IsUUID()
   subcategoryId?: string;
-
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(Number.MAX_SAFE_INTEGER)
-  page = 1;
-
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(100)
-  limit = 20;
 }

@@ -10,5 +10,10 @@ export function validateEnvironment(env: Record<string, unknown>) {
     const url = new URL(origin);
     if (!['http:', 'https:'].includes(url.protocol) || url.origin !== origin) throw new Error('CORS_ORIGINS must contain exact HTTP origins');
   }
-  return { ...env, PORT: port, DATABASE_URL: databaseUrl, NODE_ENV: nodeEnv, CORS_ORIGINS: origins };
+  const currency = String(env.CHECKOUT_CURRENCY ?? '');
+  if (currency && !/^[A-Z]{3}$/.test(currency)) throw new Error('Invalid CHECKOUT_CURRENCY');
+  return {
+    ...env, PORT: port, DATABASE_URL: databaseUrl, NODE_ENV: nodeEnv, CORS_ORIGINS: origins,
+    CHECKOUT_CURRENCY: currency || undefined,
+  };
 }

@@ -3,8 +3,8 @@ info:
   title: APSco Commerce API
   version: 0.1.0-draft
   description: >-
-    HTTP API for APSco Commerce. Health and public catalog reads are implemented.
-    Management, identity, inventory, cart, order, payment, and shipping operations are proposed for review.
+    HTTP API for APSco Commerce. Health, public catalog reads, and catalog management are implemented.
+    Identity, inventory, cart, order, payment, and shipping operations are proposed for review.
     Top-level categories are configured by APSco and exposed as a read-only list.
     Admins maintain one level of subcategories under those categories.
 servers:
@@ -129,7 +129,7 @@ paths:
       description: >-
         The default view returns published products in active subcategories.
         The all view requires the admin role and includes drafts, archived products, and products under
-        archived subcategories, with admin product fields. This view is planned and currently returns 401.
+        archived subcategories, with admin product fields.
         Results are ordered newest first with ID as the tie-breaker.
         When both filters are supplied, products must match both.
       security:
@@ -169,7 +169,7 @@ paths:
       operationId: adminCreateProduct
       description: >-
         A product belongs to exactly one subcategory. Product slugs and SKUs are globally unique.
-        Prices use the store’s configured checkout currency.
+        Prices must use the checkout currency when the store has configured one.
       security:
         - bearerAuth: []
       x-required-role: admin
@@ -333,6 +333,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AdminProduct'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -344,8 +346,10 @@ paths:
         - Products
       summary: Update a product
       operationId: adminUpdateProduct
-      description: Publish products under active subcategories. Archiving removes a product from the storefront
-        and preserves order history.
+      description: >-
+        Publish products under active subcategories. Archiving removes a product from the storefront
+        and preserves order history. Supplying imageUrls replaces the full image list in display order.
+        Supply an empty list to clear the images.
       security:
         - bearerAuth: []
       x-required-role: admin
@@ -947,6 +951,7 @@ components:
           items:
             type: string
             format: uri
+          description: Images in display order.
         categorySlug: &id011
           $ref: '#/components/schemas/CategorySlug'
     ProductPage:
@@ -1408,7 +1413,9 @@ components:
     bearerAuth:
       type: http
       scheme: bearer
-      description: Access token issued at sign-in. Management operations and views require the admin role.
+      description: >-
+        Expiring account access token. Catalog management operations and views require the admin role.
+        Catalog authentication failures with status 401 include a Bearer challenge in WWW-Authenticate.
   parameters:
     CategorySlug:
       name: categorySlug

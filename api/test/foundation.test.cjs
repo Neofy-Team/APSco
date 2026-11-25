@@ -33,6 +33,12 @@ test('configuration parses allowed origins and rejects invalid environment value
   assert.throws(() => validateEnvironment({
     DATABASE_URL: databaseUrl, CORS_ORIGINS: 'https://example.test/path',
   }), /exact HTTP origins/);
+  assert.equal(validateEnvironment({
+    DATABASE_URL: 'postgresql://localhost/db', CHECKOUT_CURRENCY: 'USD',
+  }).CHECKOUT_CURRENCY, 'USD');
+  assert.throws(() => validateEnvironment({
+    DATABASE_URL: 'postgresql://localhost/db', CHECKOUT_CURRENCY: 'usd',
+  }), /Invalid CHECKOUT_CURRENCY/);
 });
 
 test('liveness does not query PostgreSQL', () => {

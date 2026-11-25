@@ -44,3 +44,24 @@ test('category and product repositories query migrated PostgreSQL with storefron
     assert.equal(await products.getProduct(slug), undefined);
   }
 });
+
+test('product creation and image replacement roll back together with their dependent writes', async t => {
+  const { pool, migrate, seedCatalog } = await createTestDatabase(t);
+  await migrate('up');
+  await seedCatalog();
+  const products = new ProductsRepository(pool);
+
+  await pool.query('ALTER TABLE inventory ADD CHECK (on_hand > 0)');
+  await assert.rejects(products.createProduct({
+    subcategoryId: '525a24fe-ae23-46b2-a286-4604b40abfb2', slug: 'failed-create', sku: 'SKU-FAIL',
+    name: 'Failed create', description: '', price: { amount: 100, currency: 'USD' }, imageUrls: [],
+  }), { code: '23514' });
+  assert.equal((await pool.query("SELECT id FROM products WHERE slug = 'failed-create'")).rowCount, 0);
+
+  const original = await products.getProduct('first');
+  await pool.query("ALTER TABLE product_images ADD CHECK (url <> 'https://example.test/rejected')");
+  await assert.rejects(products.updateProduct(original.id, {
+    name: 'Failed update', imageUrls: ['https://example.test/rejected'],
+  }), { code: '23514' });
+  assert.deepEqual(await products.getProduct('first'), original);
+});

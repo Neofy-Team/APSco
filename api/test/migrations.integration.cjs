@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const { createTestDatabase } = require('./support/postgres.cjs');
 
 const expectedTables = [
-  'accounts', 'cart_items', 'carts', 'categories', 'inventory', 'order_items', 'orders',
+  'account_access_tokens', 'accounts', 'cart_items', 'carts', 'categories', 'inventory', 'order_items', 'orders',
   'payments', 'product_images', 'products', 'schema_migrations', 'shipments', 'subcategories',
 ];
 
@@ -21,8 +21,11 @@ test('migration applies once, rolls back and reapplies with the legacy history k
   assert.match((await migrate('down')).stdout, /No migrations to roll back/);
   await Promise.all([migrate('up'), migrate('up')]);
   assert.deepEqual(await tables(database), expectedTables);
-  const { rows } = await pool.query('SELECT name FROM schema_migrations');
-  assert.deepEqual(rows, [{ name: '0001_commerce_schema.sql' }]);
+  const { rows } = await pool.query('SELECT name FROM schema_migrations ORDER BY name');
+  assert.deepEqual(rows, [{ name: '0001_commerce_schema.sql' }, { name: '0002_account_access_tokens.sql' }]);
+
+  await migrate('down');
+  assert.deepEqual(await tables(database), expectedTables.filter(table => table !== 'account_access_tokens'));
 
   await migrate('down');
   assert.deepEqual(await tables(database), ['schema_migrations']);
@@ -35,10 +38,12 @@ test('migration rollback failure preserves all tables and history', async t => {
   const database = await createTestDatabase(t);
   const { pool, migrate } = database;
   await migrate('up');
+  await migrate('down');
   await pool.query('CREATE TABLE rollback_blocker (account_id uuid REFERENCES accounts (id))');
 
   await assert.rejects(migrate('down'), /cannot drop table accounts/);
-  assert.deepEqual(await tables(database), [...expectedTables, 'rollback_blocker'].sort());
+  assert.deepEqual(await tables(database), [...expectedTables.filter(table => table !== 'account_access_tokens'),
+    'rollback_blocker'].sort());
   assert.equal((await pool.query('SELECT * FROM schema_migrations')).rowCount, 1);
 });
 

@@ -31,7 +31,8 @@ Run `npm run typecheck` and `npm test` before merging.
 
 ## API tests
 
-Run `npm test` for unit tests. The integration and HTTP end-to-end suites require a
+Run `npm test` for unit tests. The categories and products unit tests live next to their source
+files in `api/src/modules/`. The integration and HTTP end-to-end suites live in `api/test/` and require a
 PostgreSQL connection in `TEST_DATABASE_URL` with permission to create schemas.
 Each test uses a temporary schema and removes it when the test finishes.
 
@@ -49,6 +50,34 @@ docker compose -f infra/compose.yaml --profile app up --build -d
 ```
 
 This runs compiled code; rebuild after source changes. Apply migrations with `docker compose -f infra/compose.yaml --profile app run --rm api node scripts/migrate.cjs`.
+
+## Catalog administration
+
+Run `npm run db:migrate` before using the management endpoints in `openAPI.yaml`.
+Set `CHECKOUT_CURRENCY` to the store’s three-letter currency code to enforce it on new prices.
+
+Catalog management accepts expiring bearer tokens tied to accounts with the `admin` role.
+Until sign-in is available, provision tokens through PostgreSQL. On a fresh database, create an
+`accounts` row with an administrator email, a display name, `role = 'admin'`, and a disabled
+password hash such as `disabled:catalog-token-only`.
+
+Generate a token and its hash locally.
+
+```sh
+node -e 'const { randomBytes, createHash } = require("node:crypto"); const token = randomBytes(32).toString("base64url"); console.log(token, createHash("sha256").update(token).digest("hex"))'
+```
+
+Pass the hash as `token_hash` and the administrator’s email as `admin_email` using `psql -v`.
+
+```sql
+INSERT INTO account_access_tokens (token_hash, account_id, expires_at)
+SELECT decode(:'token_hash', 'hex'), id, now() + interval '1 hour'
+FROM accounts WHERE lower(email) = lower(:'admin_email') AND role = 'admin'
+RETURNING expires_at;
+```
+
+Send the original token as `Authorization: Bearer <token>`. Delete its `account_access_tokens`
+row to revoke it.
 
 ## Deploy backend
 
