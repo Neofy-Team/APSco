@@ -4,6 +4,7 @@ import { validateEnvironment } from './config/environment';
 import { DatabaseModule } from './database/database.module';
 import { CategoriesModule } from './modules/categories/categories.module';
 import { HealthController } from './modules/health/health.controller';
+import { InventoryModule } from './modules/inventory/inventory.module';
 import { ProductsModule } from './modules/products/products.module';
 
 @Module({
@@ -11,6 +12,7 @@ import { ProductsModule } from './modules/products/products.module';
     ConfigModule.forRoot({ isGlobal: true, validate: validateEnvironment }),
     DatabaseModule,
     CategoriesModule,
+    InventoryModule,
     ProductsModule,
   ],
   controllers: [HealthController],
